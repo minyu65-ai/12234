@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karat Lnglungan mu - 山林裡的心情天氣預報</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts for better typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', 'Quicksand', sans-serif;
+            background-color: #f0f7f4;
+            overflow-x: hidden;
+            transition: background-color 1s ease;
+        }
+        .text-shadow {
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+        }
+        /* Custom animation for floating clouds */
+        @keyframes float {
+            0% { transform: translateX(-10%) translateY(0px); }
+            50% { transform: translateX(10%) translateY(-10px); }
+            100% { transform: translateX(-10%) translateY(0px); }
+        }
+        .cloud-animate {
+            animation: float 20s ease-in-out infinite;
+        }
+        /* Rain animation */
+        @keyframes rain {
+            0% { transform: translateY(-20px); opacity: 0; }
+            50% { opacity: 0.5; }
+            100% { transform: translateY(200px); opacity: 0; }
+        }
+        .rain-drop {
+            position: absolute;
+            background: linear-gradient(transparent, #7dd3fc);
+            width: 1px;
+            height: 30px;
+            animation: rain 1.5s linear infinite;
+        }
+        /* Wind animation */
+        @keyframes wind {
+            0% { transform: translateX(-100px) skewX(-15deg); opacity: 0; }
+            50% { opacity: 0.3; }
+            100% { transform: translateX(200px) skewX(-15deg); opacity: 0; }
+        }
+        .wind-line {
+            position: absolute;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+            height: 2px;
+            width: 150px;
+            animation: wind 2s linear infinite;
+        }
+        /* Color transitions for natural background */
+        .sky-sunny { background: linear-gradient(to bottom, #7dd3fc, #bae6fd, #e0f2fe); }
+        .sky-rainy { background: linear-gradient(to bottom, #475569, #64748b, #94a3b8); }
+        .sky-windy { background: linear-gradient(to bottom, #cbd5e1, #94a3b8, #e2e8f0); }
+        .sky-cloudy { background: linear-gradient(to bottom, #e2e8f0, #cbd5e1, #f1f5f9); }
+
+        /* Traditional Truku Diamond Totem Pattern generator for CSS */
+        .truku-border {
+            background-image: linear-gradient(45deg, #dc2626 25%, transparent 25%), 
+                              linear-gradient(-45deg, #dc2626 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #dc2626 75%), 
+                              linear-gradient(-45deg, transparent 75%, #dc2626 75%);
+            background-size: 16px 16px;
+            background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+            background-color: #000000;
+        }
+
+        /* PRINT STYLES - Hides everything except certificate when printing */
+        @media print {
+            body {
+                background: white !important;
+            }
+            body > *:not(#certificate-modal) {
+                display: none !important;
+            }
+            #certificate-modal {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background: white !important;
+                display: flex !important;
+                justify-content: center;
+                align-items: center;
+            }
+            .no-print {
+                display: none !important;
+            }
+            #certificate-card {
+                box-shadow: none !important;
+                border: 2px solid #e2e8f0 !important;
+                transform: none !important;
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+        }
+    </style>
+</head>
+<body class="sky-sunny min-h-screen flex flex-col justify-between transition-all duration-1000 relative">
+
+    <!-- Rain Container (Hidden by default) -->
+    <div id="rain-effect" class="absolute inset-0 pointer-events-none hidden overflow-hidden z-10"></div>
+
+    <!-- Wind Container (Hidden by default) -->
+    <div id="wind-effect" class="absolute inset-0 pointer-events-none hidden overflow-hidden z-10"></div>
+
+    <!-- HEADER / NAVIGATION -->
+    <header class="p-4 flex justify-between items-center z-20 no-print">
+        <div class="flex items-center gap-3">
+            <span class="text-4xl">🏔️</span>
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800 tracking-wide">山林裡的心情天氣預報</h1>
+                <p class="text-sm font-semibold text-slate-600">Karat Lnglungan mu</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <!-- Teacher Guide Button -->
+            <button onclick="toggleGuide()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-full shadow-lg transition-all flex items-center gap-2">
+                <i class="fa-solid fa-graduation-cap"></i>
+                <span>Gaya 教案小抄</span>
+            </button>
+            <!-- Reset Button -->
+            <button onclick="resetApp()" class="bg-slate-700 hover:bg-slate-800 text-white font-bold p-2 px-3 rounded-full shadow-lg transition-all" title="重設狀態">
+                <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN INTERACTIVE CANVAS -->
+    <main class="flex-grow flex flex-col lg:flex-row items-center justify-center px-4 gap-8 z-20 max-w-7xl mx-auto w-full no-print">
+        
+        <!-- LEFT: Dynamic Dgiyaq (Great Mountain) Visual -->
+        <div class="w-full lg:w-1/2 flex flex-col items-center justify-center relative min-h-[320px] lg:min-h-[450px]">
+            <!-- Dynamic Clouds -->
+            <div id="visual-clouds" class="absolute w-full h-full top-0 pointer-events-none">
+                <!-- SVG Cloud 1 -->
+                <svg class="cloud-animate absolute w-32 h-20 text-white opacity-80 top-10 left-10" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
+                </svg>
+                <!-- SVG Cloud 2 -->
+                <svg class="cloud-animate absolute w-48 h-28 text-white opacity-60 top-20 right-10" style="animation-delay: -5s; animation-duration: 25s;" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
+                </svg>
+            </div>
+
+            <!-- Beautiful Rainbow Bridge (Hakaw Utux) - Appears dynamically -->
+            <div id="hakaw-utux" class="absolute w-[120%] h-48 top-8 opacity-0 transition-opacity duration-1000 pointer-events-none flex items-center justify-center">
+                <!-- Rainbow Gradient Arc -->
+                <div class="w-full h-48 border-t-[20px] border-double rounded-full border-transparent" style="background: radial-gradient(circle at bottom, transparent 40%, rgba(255,0,0,0.4) 42%, rgba(255,165,0,0.4) 45%, rgba(255,255,0,0.4) 48%, rgba(0,128,0,0.4) 51%, rgba(0,0,255,0.4) 54%, rgba(75,0,130,0.4) 57%, transparent 60%);"></div>
+                <span class="absolute top-20 bg-white/90 text-red-600 font-bold px-3 py-1 rounded-full text-xs tracking-widest shadow-md">Hakaw Utux 彩虹橋已升起</span>
+            </div>
+
+            <!-- Great Mountain (Dgiyaq) Vector Graphic -->
+            <div class="relative w-80 h-80 flex items-end justify-center">
+                <!-- Sun/Moon element that changes state -->
+                <div id="sky-luminary" class="absolute top-4 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-amber-400 shadow-lg shadow-amber-300/50 transition-all duration-1000 flex items-center justify-center">
+                    <div class="w-20 h-20 rounded-full bg-amber-300"></div>
+                </div>
+
+                <!-- The Big Mountain Body -->
+                <svg class="w-full h-72 drop-shadow-2xl z-10 transition-colors duration-1000" id="mountain-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Main Mountain Base -->
+                    <path d="M10 100 L50 20 L90 100 Z" fill="#14532d" class="transition-all duration-1000" id="mtn-body-1"/>
+                    <!-- Second overlapping peak -->
+                    <path d="M35 100 L65 40 L95 100 Z" fill="#0f291a" class="opacity-80 transition-all duration-1000" id="mtn-body-2"/>
+                    <!-- Snow cap or Sun Highlight on Peak -->
+                    <path d="M45 30 L50 20 L55 30 L52 28 L50 32 L48 28 Z" fill="#f8fafc" class="transition-all duration-1000" id="mtn-cap"/>
+                </svg>
+                
+                <!-- Truku Totem Decorative Border Base -->
+                <div class="absolute bottom-0 w-full h-4 bg-red-600 z-20 flex overflow-hidden rounded">
+                    <!-- Repeating Diamond Totem Pattern -->
+                    <div class="w-full flex justify-around items-center text-white text-[8px] tracking-tighter">
+                        ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆ ◆
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Mt. Status Text -->
+            <div class="mt-4 text-center z-10">
+                <span id="mountain-status" class="bg-white/80 backdrop-blur-md text-emerald-800 font-bold px-4 py-2 rounded-full border border-emerald-100 shadow-sm text-sm">
+                    我是大山 Dgiyaq，溫暖地擁抱你所有的天氣。
+                </span>
+            </div>
+        </div>
+
+        <!-- RIGHT: Interactive Control & Phrase Learning -->
+        <div class="w-full lg:w-1/2 flex flex-col gap-6">
+            
+            <!-- Weather Mood Selector -->
+            <div class="bg-white/85 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-white/50">
+                <h3 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <span class="text-xl">👉</span> 請選擇你今天的心情天氣 (Karat Lnglungan)
+                </h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- SUNNY -->
+                    <button onclick="selectWeather('sunny')" id="btn-sunny" class="weather-btn p-4 rounded-2xl border-2 border-amber-200 bg-amber-50/50 hover:bg-amber-100/50 transition-all flex flex-col items-center gap-2 text-center group active:scale-95">
+                        <span class="text-4xl group-hover:scale-110 transition-transform">☀️</span>
+                        <span class="font-bold text-amber-900 text-sm">晴天 / Malu bi karat</span>
+                        <span class="text-xs text-amber-700/80">喜樂快樂 Mqqaras</span>
+                    </button>
+                    <!-- RAINY -->
+                    <button onclick="selectWeather('rainy')" id="btn-rainy" class="weather-btn p-4 rounded-2xl border-2 border-slate-200 bg-slate-50/50 hover:bg-slate-100/50 transition-all flex flex-col items-center gap-2 text-center group active:scale-95">
+                        <span class="text-4xl group-hover:scale-110 transition-transform">🌧️</span>
+                        <span class="font-bold text-slate-900 text-sm">下雨 / Qmuyux</span>
+                        <span class="text-xs text-slate-700/80">難過受傷 Mnarux</span>
+                    </button>
+                    <!-- WINDY -->
+                    <button onclick="selectWeather('windy')" id="btn-windy" class="weather-btn p-4 rounded-2xl border-2 border-teal-200 bg-teal-50/50 hover:bg-teal-100/50 transition-all flex flex-col items-center gap-2 text-center group active:scale-95">
+                        <span class="text-4xl group-hover:scale-110 transition-transform">💨</span>
+                        <span class="font-bold text-teal-900 text-sm">強風 / Yupun bgihur</span>
+                        <span class="text-xs text-teal-700/80">煩躁不安 Lnglungan mu</span>
+                    </button>
+                    <!-- CLOUDY -->
+                    <button onclick="selectWeather('cloudy')" id="btn-cloudy" class="weather-btn p-4 rounded-2xl border-2 border-slate-300 bg-slate-100/50 hover:bg-slate-200/50 transition-all flex flex-col items-center gap-2 text-center group active:scale-95">
+                        <span class="text-4xl group-hover:scale-110 transition-transform">☁️</span>
+                        <span class="font-bold text-slate-900 text-sm">白雲 / Rulung bhgay</span>
+                        <span class="text-xs text-slate-700/80">平靜安穩 Mgdhug</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Phrase Card & Interactive Dialogue Board -->
+            <div class="bg-white p-6 rounded-3xl shadow-xl border border-slate-100 flex-grow flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="bg-red-100 text-red-700 text-xs font-bold px-3 py-1 rounded-full">太魯閣語對話實踐</span>
+                        <span class="text-xs text-slate-400">第一階 & 第二階整合應用</span>
+                    </div>
+
+                    <!-- Question Section -->
+                    <div class="mb-5 bg-slate-50 p-3 rounded-2xl border-l-4 border-emerald-500">
+                        <p class="text-xs text-slate-500 font-bold">問候與關懷：</p>
+                        <h4 class="text-lg font-bold text-slate-800 mt-1">Embiyax su hug?</h4>
+                        <p class="text-xs text-slate-600 mt-0.5">（你好嗎？ / 你現在的心情天氣如何？）</p>
+                    </div>
+
+                    <!-- Answer Section -->
+                    <div class="bg-emerald-50 p-4 rounded-2xl border-l-4 border-emerald-600 relative overflow-hidden">
+                        <p class="text-xs text-emerald-700 font-bold">我的心情氣報（請試著唸唸看）：</p>
+                        <div class="mt-2">
+                            <h4 id="response-truku" class="text-xl font-extrabold text-emerald-900 tracking-wide">Yaku o ______ balay.</h4>
+                            <p id="response-chinese" class="text-sm text-emerald-800 mt-1">（我很 ______。）</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SEL Gaya Response Card (Dynamic based on selected mood) -->
+                <div id="gaya-response" class="mt-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 hidden transition-all">
+                    <div class="flex gap-3">
+                        <span id="gaya-icon" class="text-2xl">🤝</span>
+                        <div>
+                            <h5 id="gaya-title" class="font-bold text-amber-900 text-sm">Gaya 溫慢引導</h5>
+                            <p id="gaya-desc" class="text-xs text-amber-800 mt-1 leading-relaxed">
+                                點擊上方天氣，開啟與孩子心靈對話。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Button for Certificate -->
+                <div class="mt-5 flex justify-center">
+                    <button onclick="openCertificateModal()" class="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white font-black py-3 px-6 rounded-2xl shadow-lg shadow-red-200 hover:shadow-xl transition-all flex items-center justify-center gap-2 transform hover:-translate-y-0.5">
+                        <i class="fa-solid fa-trophy text-amber-300 text-lg animate-bounce"></i>
+                        <span>🏆 領取山林自我覺察證書</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="p-4 text-center text-xs text-slate-600 z-20 no-print">
+        <p>Truku Karat Lnglungan mu © 2026 山林與心靈共鳴。Mhuway su balay!</p>
+    </footer>
+
+    <!-- SIDEBAR: TEACHER'S LESSON GUIDE (Hidden by default) -->
+    <div id="teacher-guide" class="fixed right-0 top-0 h-full w-80 sm:w-96 bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col justify-between no-print">
+        <!-- Sidebar Header -->
+        <div class="p-4 bg-emerald-700 text-white flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-graduation-cap text-xl"></i>
+                <div>
+                    <h3 class="font-bold text-sm tracking-wide">山林裡的心情天氣預報</h3>
+                    <p class="text-[10px] text-emerald-200">SEL 社會情緒學習融入族語課</p>
+                </div>
+            </div>
+            <button onclick="toggleGuide()" class="text-white hover:text-emerald-200 text-xl font-bold p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Sidebar Content -->
+        <div class="p-5 flex-grow overflow-y-auto space-y-6 text-sm text-slate-700">
+            <!-- Part 1 -->
+            <div>
+                <h4 class="font-bold text-emerald-800 flex items-center gap-2 mb-2">
+                    <span class="bg-emerald-100 text-emerald-800 w-5 h-5 rounded-full inline-flex items-center justify-center text-xs">1</span>
+                    山的隱喻 (1 分鐘)
+                </h4>
+                <p class="text-xs leading-relaxed text-slate-600 bg-slate-50 p-2.5 rounded-lg border-l-2 border-slate-300">
+                    老師引導學生想像自己是一座大山 <strong>Dgiyaq</strong>。山上的天氣 <strong>Karat</strong> 每天都在變化，有時出太陽，有時會下雨，這就像我們的心情 <strong>Lnglungan</strong> 一樣，是很自然的事。
+                </p>
+            </div>
+
+            <!-- Part 2 -->
+            <div>
+                <h4 class="font-bold text-emerald-800 flex items-center gap-2 mb-2">
+                    <span class="bg-emerald-100 text-emerald-800 w-5 h-5 rounded-full inline-flex items-center justify-center text-xs">2</span>
+                    詞彙連結 (1 分鐘)
+                </h4>
+                <ul class="text-xs space-y-1.5 list-none pl-1">
+                    <li class="flex items-center gap-1.5"><span class="text-sm">☀️</span> <strong>Malu Bi Karat</strong>: 晴天 (Mqqaras 快樂)</li>
+                    <li class="flex items-center gap-1.5"><span class="text-sm">🌧️</span> <strong>Qmuyux</strong>: 下雨 (Mnarux/Lmingis 難過)</li>
+                    <li class="flex items-center gap-1.5"><span class="text-sm">💨</span> <strong>Yupun Bgihur</strong>: 強風 (心裡不安/亂糟糟)</li>
+                    <li class="flex items-center gap-1.5"><span class="text-sm">☁️</span> <strong>Rulung Bhgay</strong>: 白雲 (平靜安穩 Mgdhug)</li>
+                </ul>
+            </div>
+
+            <!-- Part 3 -->
+            <div>
+                <h4 class="font-bold text-emerald-800 flex items-center gap-2 mb-2">
+                    <span class="bg-emerald-100 text-emerald-800 w-5 h-5 rounded-full inline-flex items-center justify-center text-xs">3</span>
+                    族語互動 (3 分鐘)
+                </h4>
+                <p class="text-xs text-slate-600 leading-relaxed mb-2">
+                    採兩人一組或全班圓圈分享，進行以下句型對話練習：
+                </p>
+                <div class="bg-emerald-50 p-2.5 rounded-lg border border-emerald-100 text-xs">
+                    <strong>問：</strong> Embiyax su hug?<br>
+                    <strong>答：</strong> Yaku o [天氣詞彙] balay.
+                </div>
+            </div>
+
+            <!-- Part 4 -->
+            <div>
+                <h4 class="font-bold text-emerald-800 flex items-center gap-2 mb-2">
+                    <span class="bg-emerald-100 text-emerald-800 w-5 h-5 rounded-full inline-flex items-center justify-center text-xs">4</span>
+                    教師正向回饋 & SEL 引導
+                </h4>
+                <div class="space-y-3">
+                    <div class="bg-amber-50 p-2.5 rounded-lg border border-amber-100 text-xs">
+                        <strong class="text-amber-800">晴天與白雲的肯定：</strong><br>
+                        老師說：「Mqqaras ku bi uri!」（我也很高興！）並讚賞他們保持平靜穩重（Mgdhug）的心。
+                    </div>
+                    <div class="bg-sky-50 p-2.5 rounded-lg border border-sky-100 text-xs">
+                        <strong class="text-sky-850">雨天與強風的支持：</strong><br>
+                        引導孩子們實踐 <strong>Pddayaw</strong>（互相幫助）的精神。溫暖地說：「雨天過後，我們都會看見 <strong>Hakaw Utux</strong>（彩虹橋）的。」
+                    </div>
+                </div>
+            </div>
+
+            <!-- Warm Prompts -->
+            <div class="border-t pt-4">
+                <h5 class="font-bold text-red-700 text-xs flex items-center gap-1.5 mb-2">
+                    <i class="fa-solid fa-lightbulb"></i> 教師溫馨提示 (Prompts)
+                </h5>
+                <p class="text-xs italic text-slate-600 leading-relaxed">
+                    「小勇士們，不論你今天的內心是晴天還是雨天，Dgiyaq（大山）都會溫暖地擁抱你。Q qita binaw!（看一看吧！）」
+                </p>
+                <p class="text-xs italic text-slate-600 leading-relaxed mt-2">
+                    「當你聽到夥伴在『下雨』時，請給他一個溫暖的眼神，這就是我們 Truku 的 Gaya（規範/文化美德）。」
+                </p>
+            </div>
+        </div>
+
+        <!-- Sidebar Footer -->
+        <div class="p-4 bg-slate-100 text-center text-xs text-slate-500 border-t">
+            Mhuway su balay! 感謝您的付出！
+        </div>
+    </div>
+
+
+    <!-- INTERACTIVE CERTIFICATE MODAL -->
+    <div id="certificate-modal" class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 md:p-8 relative shadow-2xl flex flex-col md:flex-row gap-6">
+            
+            <!-- Modal Close button (Top-right) -->
+            <button onclick="closeCertificateModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-2xl p-1 no-print z-30">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <!-- Left column inside modal: Controls (Hidden during printing) -->
+            <div class="w-full md:w-1/3 flex flex-col justify-between gap-4 no-print">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <span class="text-2xl">🏆</span>
+                        <span>自我覺察小勇士證書</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-1">恭喜你完成今天的心靈天氣觀照！請在這裡輸入名字以生成專屬證書：</p>
+                    
+                    <!-- Input name field -->
+                    <div class="mt-4">
+                        <label class="block text-sm font-bold text-slate-700 mb-1">
+                            <i class="fa-solid fa-signature text-emerald-600 mr-1"></i> 小勇士名字：
+                        </label>
+                        <input type="text" id="cert-student-name" oninput="updateCertName()" placeholder="例如：Pawan / 哈勇" class="w-full px-4 py-2 border-2 border-emerald-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 font-bold text-slate-700">
+                    </div>
+
+                    <!-- Custom Message based on current selected weather -->
+                    <div class="mt-4 bg-emerald-50 p-3 rounded-2xl border border-emerald-100">
+                        <p class="text-[11px] font-bold text-emerald-800">💡 當前心情天氣印記：</p>
+                        <p id="cert-weather-status-text" class="text-xs text-emerald-700 mt-1 font-semibold">晴天 (Malu bi karat) - Mqqaras 喜樂</p>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex flex-col gap-2 mt-4">
+                    <button onclick="printCertificate()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-print"></i>
+                        <span>列印 / 存成 PDF 證書</span>
+                    </button>
+                    <p class="text-[10px] text-slate-400 text-center">可選擇「儲存為 PDF」或直接以 A4 紙張彩印留存喔！</p>
+                    <button onclick="closeCertificateModal()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-xl transition-all">
+                        返回教具
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right column / Print Area: The Certificate Document -->
+            <div class="w-full md:w-2/3 flex items-center justify-center bg-slate-50 p-2 rounded-2xl border border-slate-100" id="certificate-print-area">
+                
+                <!-- CERTIFICATE CARD BASE -->
+                <div id="certificate-card" class="bg-stone-50 border-8 border-double border-red-600 rounded-2xl p-6 relative w-full shadow-lg aspect-[1.414/1] max-w-lg md:max-w-xl text-stone-800 flex flex-col justify-between overflow-hidden">
+                    
+                    <!-- Top Diamond Pattern Bar -->
+                    <div class="truku-border w-full h-3 absolute top-0 left-0"></div>
+                    <!-- Bottom Diamond Pattern Bar -->
+                    <div class="truku-border w-full h-3 absolute bottom-0 left-0"></div>
+                    
+                    <!-- Elegant Frame Corner Highlights -->
+                    <div class="absolute top-4 left-4 w-6 h-6 border-t-4 border-l-4 border-red-600"></div>
+                    <div class="absolute top-4 right-4 w-6 h-6 border-t-4 border-r-4 border-red-600"></div>
+                    <div class="absolute bottom-4 left-4 w-6 h-6 border-b-4 border-l-4 border-red-600"></div>
+                    <div class="absolute bottom-4 right-4 w-6 h-6 border-b-4 border-r-4 border-red-600"></div>
+
+                    <!-- Certificate Header -->
+                    <div class="text-center mt-2">
+                        <span class="text-2xl">🏔️</span>
+                        <h2 class="text-lg md:text-xl font-extrabold tracking-widest text-red-700 mt-1">太魯閣族山林小勇士</h2>
+                        <h1 class="text-xl md:text-2xl font-black tracking-widest text-slate-800 mt-0.5">自我覺察認證證書</h1>
+                        <p class="text-[9px] md:text-[10px] uppercase font-bold tracking-wider text-stone-500 mt-1">Truku Gaya Self-Awareness Certificate</p>
+                        <!-- Tribal divider -->
+                        <div class="flex justify-center items-center gap-1.5 my-2">
+                            <span class="h-[1px] w-12 bg-red-600"></span>
+                            <span class="text-[8px] text-red-600">◆ ◆ ◆</span>
+                            <span class="h-[1px] w-12 bg-red-600"></span>
+                        </div>
+                    </div>
+
+                    <!-- Certificate Content Body -->
+                    <div class="px-3 text-center my-2 flex-grow flex flex-col justify-center">
+                        <p class="text-xs text-stone-500 tracking-wide font-medium">茲證明山林小勇士</p>
+                        <!-- Dynamic Student Name -->
+                        <h3 id="cert-display-name" class="text-2xl md:text-3xl font-black text-slate-800 my-1 underline decoration-red-600 decoration-wavy underline-offset-8 min-h-[40px]">
+                            [ 請輸入姓名 ]
+                        </h3>
+                        <p class="text-[11px] md:text-xs text-stone-700 leading-relaxed max-w-md mx-auto mt-2">
+                            成功完成「山林心情氣候預報 (Karat Lnglungan mu)」自我覺察練習。能像 <span class="font-bold text-emerald-800">Dgiyaq (大山)</span> 一樣溫暖且穩重地接納自己的情緒流動，並展現 Truku 的 <span class="font-bold text-red-700">Gaya</span> 精神，特頒此證以資鼓勵。
+                        </p>
+                    </div>
+
+                    <!-- Certificate Footer & Date/Stamp elements -->
+                    <div class="flex justify-between items-end mt-4 px-2 pb-2">
+                        <!-- Date & Signature Column -->
+                        <div class="text-left">
+                            <p class="text-[10px] text-stone-600 font-bold flex items-center gap-1">
+                                <span>認證日期：</span>
+                                <span id="cert-date" class="font-bold text-slate-700">2026 年 7 月 5 日</span>
+                            </p>
+                            <div class="mt-4 flex items-center gap-2">
+                                <span class="border-t border-slate-400 pt-1 text-[9px] text-stone-500 tracking-wider">
+                                    太魯閣族老師 Mptgsa Truku 簽章
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Emotional Weather Seal -->
+                        <div class="relative flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full border-4 border-dashed border-red-600 bg-red-50/50 p-1 text-center select-none" id="cert-seal">
+                            <div class="flex flex-col items-center justify-center">
+                                <span id="cert-seal-icon" class="text-xl md:text-2xl">☀️</span>
+                                <span id="cert-seal-truku" class="text-[7px] md:text-[8px] font-bold text-red-700 mt-0.5 leading-none">Mqqaras</span>
+                                <span id="cert-seal-chinese" class="text-[6px] md:text-[7px] text-stone-500 leading-none">喜樂晴天</span>
+                            </div>
+                            <!-- Traditional circular tribal writing around seal -->
+                            <div class="absolute inset-0 border border-red-200 rounded-full opacity-30"></div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- AUDIO SOUND EFFECTS (Web Audio API Synthesizer Fallbacks) -->
+    <script>
+        // Audio Synthesis Context
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // Play procedural tone based on weather selection
+        function playSound(type) {
+            try {
+                initAudio();
+                if (!audioCtx) return;
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'sunny') {
+                    // Bright, high, sparkling melody
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+                    osc.frequency.exponentialRampToValueAtTime(783.99, audioCtx.currentTime + 0.3); // G5
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.5);
+                } else if (type === 'rainy') {
+                    // Muted, gentle falling sound
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(329.63, audioCtx.currentTime); // E4
+                    osc.frequency.exponentialRampToValueAtTime(220.00, audioCtx.currentTime + 0.6); // A3
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.8);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.8);
+                } else if (type === 'windy') {
+                    // Noise-like sweep
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 0.4);
+                    osc.frequency.linearRampToValueAtTime(200, audioCtx.currentTime + 0.8);
+                    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.8);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.8);
+                } else if (type === 'cloudy') {
+                    // Calm, warm, stable chord
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(261.63, audioCtx.currentTime); // C4
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.6);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.6);
+                } else if (type === 'rainbow') {
+                    // Magic upward glissando
+                    const notes = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
+                    notes.forEach((freq, idx) => {
+                        const o = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        o.connect(g);
+                        g.connect(audioCtx.destination);
+                        o.type = 'triangle';
+                        o.frequency.setValueAtTime(freq, audioCtx.currentTime + idx * 0.08);
+                        g.gain.setValueAtTime(0.08, audioCtx.currentTime + idx * 0.08);
+                        g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + idx * 0.08 + 0.3);
+                        o.start(audioCtx.currentTime + idx * 0.08);
+                        o.stop(audioCtx.currentTime + idx * 0.08 + 0.3);
+                    });
+                }
+            } catch (e) {
+                console.log("Audio not allowed yet or unsupported");
+            }
+        }
+    </script>
+
+    <!-- CORE LOGIC / INTERACTIVE SCRIPTS -->
+    <script>
+        const body = document.body;
+        const mtnBody1 = document.getElementById('mtn-body-1');
+        const mtnBody2 = document.getElementById('mtn-body-2');
+        const mtnCap = document.getElementById('mtn-cap');
+        const skyLuminary = document.getElementById('sky-luminary');
+        
+        const mtnStatus = document.getElementById('mountain-status');
+        const responseTruku = document.getElementById('response-truku');
+        const responseChinese = document.getElementById('response-chinese');
+        
+        const gayaResponse = document.getElementById('gaya-response');
+        const gayaIcon = document.getElementById('gaya-icon');
+        const gayaTitle = document.getElementById('gaya-title');
+        const gayaDesc = document.getElementById('gaya-desc');
+        
+        const hakawUtux = document.getElementById('hakaw-utux');
+        const rainEffect = document.getElementById('rain-effect');
+        const windEffect = document.getElementById('wind-effect');
+
+        // Current weather state (default to sunny initially)
+        let currentSelectedWeather = 'sunny';
+
+        // Toggle Teacher Guide Sidebar
+        function toggleGuide() {
+            const guide = document.getElementById('teacher-guide');
+            guide.classList.toggle('translate-x-full');
+        }
+
+        // Procedural Rain effect generator
+        function createRain() {
+            rainEffect.innerHTML = '';
+            const dropCount = 40;
+            for(let i=0; i<dropCount; i++) {
+                const drop = document.createElement('div');
+                drop.classList.add('rain-drop');
+                drop.style.left = `${Math.random() * 100}%`;
+                drop.style.top = `${Math.random() * -20}px`;
+                drop.style.animationDelay = `${Math.random() * 2}s`;
+                drop.style.animationDuration = `${1 + Math.random() * 1.2}s`;
+                rainEffect.appendChild(drop);
+            }
+        }
+
+        // Procedural Wind effect generator
+        function createWind() {
+            windEffect.innerHTML = '';
+            const windLinesCount = 8;
+            for(let i=0; i<windLinesCount; i++) {
+                const wind = document.createElement('div');
+                wind.classList.add('wind-line');
+                wind.style.top = `${Math.random() * 90}%`;
+                wind.style.left = `${Math.random() * -100}px`;
+                wind.style.animationDelay = `${Math.random() * 3}s`;
+                wind.style.animationDuration = `${1.5 + Math.random() * 2}s`;
+                windEffect.appendChild(wind);
+            }
+        }
+
+        // Main Interaction Selector
+        function selectWeather(weatherType) {
+            currentSelectedWeather = weatherType;
+            
+            // Play procedural sound
+            playSound(weatherType);
+
+            // Reset active styles on buttons
+            document.querySelectorAll('.weather-btn').forEach(btn => {
+                btn.classList.remove('border-amber-500', 'bg-amber-100', 'border-slate-500', 'bg-slate-200', 'border-teal-500', 'bg-teal-100', 'scale-95');
+                btn.classList.add('opacity-70');
+            });
+
+            // Hide rain, wind and rainbow by default
+            rainEffect.classList.add('hidden');
+            windEffect.classList.add('hidden');
+            hakawUtux.classList.add('opacity-0');
+
+            // Apply styling & logic based on type
+            if (weatherType === 'sunny') {
+                const activeBtn = document.getElementById('btn-sunny');
+                activeBtn.classList.add('border-amber-500', 'bg-amber-100', 'scale-95');
+                activeBtn.classList.remove('opacity-70');
+
+                // Adjust Sky & Mountain styling
+                body.className = "sky-sunny min-h-screen flex flex-col justify-between transition-all duration-1000 relative";
+                mtnBody1.setAttribute('fill', '#166534'); // Bright Forest Green
+                mtnBody2.setAttribute('fill', '#14532d');
+                mtnCap.setAttribute('fill', '#fef08a'); // Sunny Golden Peak
+
+                // Sun Element adjustment
+                skyLuminary.className = "absolute top-4 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-amber-400 shadow-lg shadow-amber-300/50 transition-all duration-1000 flex items-center justify-center scale-100";
+                skyLuminary.innerHTML = '<div class="w-20 h-20 rounded-full bg-amber-300"></div>';
+
+                // Language Board Update
+                responseTruku.innerHTML = 'Yaku o <span class="text-amber-600 underline font-bold">Malu bi karat</span> balay.';
+                responseChinese.innerText = '（我的心情是大晴天 / 我現在心情很好。）';
+
+                // Mountain Status Update
+                mtnStatus.innerHTML = '☀️ 大山看見你的晴天，我的心裡也跟著 <strong>Mqqaras</strong>（喜樂）！';
+
+                // Gaya Guidance Card Update
+                gayaResponse.classList.remove('hidden');
+                gayaIcon.innerText = '✨';
+                gayaTitle.innerText = 'Mqqaras ku bi uri! (我也很高興！)';
+                gayaDesc.innerText = '「太棒了！像陽光一樣燦爛吧。把你溫暖的晴天能量，分享給身旁需要幫助（Pddayaw）的夥伴吧！」';
+            } 
+            else if (weatherType === 'rainy') {
+                const activeBtn = document.getElementById('btn-rainy');
+                activeBtn.classList.add('border-slate-500', 'bg-slate-200', 'scale-95');
+                activeBtn.classList.remove('opacity-70');
+
+                // Adjust Sky & Mountain styling
+                body.className = "sky-rainy min-h-screen flex flex-col justify-between transition-all duration-1000 relative";
+                mtnBody1.setAttribute('fill', '#334155'); // Dark Slate Slate
+                mtnBody2.setAttribute('fill', '#1e293b');
+                mtnCap.setAttribute('fill', '#cbd5e1'); // Rainy cloud covered peak
+
+                // Sun turns into a dark raincloud symbol
+                skyLuminary.className = "absolute top-8 left-1/3 w-32 h-12 rounded-full bg-slate-400 opacity-80 transition-all duration-1000 flex items-center justify-center scale-90";
+                skyLuminary.innerHTML = '<div class="absolute -top-3 left-6 w-16 h-12 bg-slate-400 rounded-full"></div>';
+
+                // Turn on procedural rain
+                rainEffect.classList.remove('hidden');
+                createRain();
+
+                // Language Board Update
+                responseTruku.innerHTML = 'Yaku o <span class="text-slate-700 underline font-bold">Qmuyux</span> balay.';
+                responseChinese.innerText = '（我的心正在下雨 / 我現在心情有點難過、受傷。）';
+
+                // Mountain Status Update
+                mtnStatus.innerHTML = '🌧️ 沒關係，天空會下雨，大山也會流淚，這都是很自然的。';
+
+                // Gaya Guidance Card Update
+                gayaResponse.classList.remove('hidden');
+                gayaIcon.innerText = '🌈';
+                gayaTitle.innerText = 'Gaya 溫暖回饋：雨天過後有彩虹';
+                gayaDesc.innerText = '「當你聽到夥伴在『下雨』時，請給他一個溫暖的眼神與拍拍。雨天過後，我們都會看見 Hakaw Utux（彩虹橋）的。我們一起 Pddayaw（互助）！」';
+                
+                // Show Rainbow Bridge after a short delay to symbolize support
+                setTimeout(() => {
+                    if (document.getElementById('btn-rainy').classList.contains('scale-95')) {
+                        hakawUtux.classList.remove('opacity-0');
+                        playSound('rainbow');
+                    }
+                }, 3500);
+            } 
+            else if (weatherType === 'windy') {
+                const activeBtn = document.getElementById('btn-windy');
+                activeBtn.classList.add('border-teal-500', 'bg-teal-100', 'scale-95');
+                activeBtn.classList.remove('opacity-70');
+
+                // Adjust Sky & Mountain styling
+                body.className = "sky-windy min-h-screen flex flex-col justify-between transition-all duration-1000 relative";
+                mtnBody1.setAttribute('fill', '#0f766e'); // Deep teal mountain
+                mtnBody2.setAttribute('fill', '#115e59');
+                mtnCap.setAttribute('fill', '#e2e8f0');
+
+                // Sun turns into swirling wind symbol
+                skyLuminary.className = "absolute top-4 left-1/2 -translate-x-1/2 w-20 h-20 rounded-full bg-teal-100 opacity-60 transition-all duration-1000 flex items-center justify-center scale-90";
+                skyLuminary.innerHTML = '<i class="fa-solid fa-wind text-teal-600 text-3xl animate-pulse"></i>';
+
+                // Turn on procedural wind lines
+                windEffect.classList.remove('hidden');
+                createWind();
+
+                // Language Board Update
+                responseTruku.innerHTML = 'Yaku o <span class="text-teal-700 underline font-bold">Yupun bgihur</span> balay.';
+                responseChinese.innerText = '（我的心裡正在吹強風 / 我感到煩躁或亂糟糟的。）';
+
+                // Mountain Status Update
+                mtnStatus.innerHTML = '💨 風再強，大山 Dgiyaq 都會像 Gaya 一樣穩穩地挺立，擁抱你。';
+
+                // Gaya Guidance Card Update
+                gayaResponse.classList.remove('hidden');
+                gayaIcon.innerText = '🍃';
+                gayaTitle.innerText = 'Gaya 心靈指引：深呼吸';
+                gayaDesc.innerText = '「風會吹過，但不會把你帶走。想像大山的沈穩（Mgdhug），讓我們一起做三次大大的深呼吸，把風輕輕地吐出來。」';
+            } 
+            else if (weatherType === 'cloudy') {
+                const activeBtn = document.getElementById('btn-cloudy');
+                activeBtn.classList.add('border-slate-500', 'bg-slate-200', 'scale-95');
+                activeBtn.classList.remove('opacity-70');
+
+                // Adjust Sky & Mountain styling
+                body.className = "sky-cloudy min-h-screen flex flex-col justify-between transition-all duration-1000 relative";
+                mtnBody1.setAttribute('fill', '#1e3a1e'); // Calm Muted Green
+                mtnBody2.setAttribute('fill', '#052e16');
+                mtnCap.setAttribute('fill', '#ffffff');
+
+                // Sun turns into peaceful white clouds
+                skyLuminary.className = "absolute top-6 left-1/2 -translate-x-1/2 w-28 h-12 rounded-full bg-white transition-all duration-1000 flex items-center justify-center scale-100";
+                skyLuminary.innerHTML = '<div class="absolute -top-3 left-4 w-12 h-12 bg-white rounded-full"></div><div class="absolute -top-1 left-12 w-14 h-10 bg-white rounded-full"></div>';
+
+                // Language Board Update
+                responseTruku.innerHTML = 'Yaku o <span class="text-slate-600 underline font-bold">Rulung bhgay</span> balay.';
+                responseChinese.innerText = '（我的心像一片白雲 / 我感到很平靜、安穩。）';
+
+                // Mountain Status Update
+                mtnStatus.innerHTML = '☁️ 像白雲一樣自在，學習像大山一樣穩重（Mgdhug）地生活。';
+
+                // Gaya Guidance Card Update
+                gayaResponse.classList.remove('hidden');
+                gayaIcon.innerText = '🧘';
+                gayaTitle.innerText = 'Mgdhug (穩重/平靜)';
+                gayaDesc.innerText = '「平靜是力量的來源。像靜靜依偎在山頭的白雲一樣，溫柔而安詳地面對今天。你做得很好！」';
+            }
+        }
+
+        // Reset to initial state
+        function resetApp() {
+            currentSelectedWeather = 'sunny';
+            document.querySelectorAll('.weather-btn').forEach(btn => {
+                btn.classList.remove('border-amber-500', 'bg-amber-100', 'border-slate-500', 'bg-slate-200', 'border-teal-500', 'bg-teal-100', 'scale-95', 'opacity-70');
+            });
+            body.className = "sky-sunny min-h-screen flex flex-col justify-between transition-all duration-1000 relative";
+            mtnBody1.setAttribute('fill', '#14532d');
+            mtnBody2.setAttribute('fill', '#0f291a');
+            mtnCap.setAttribute('fill', '#f8fafc');
+            skyLuminary.className = "absolute top-4 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-amber-400 shadow-lg shadow-amber-300/50 transition-all duration-1000 flex items-center justify-center";
+            skyLuminary.innerHTML = '<div class="w-20 h-20 rounded-full bg-amber-300"></div>';
+            
+            rainEffect.classList.add('hidden');
+            windEffect.classList.add('hidden');
+            hakawUtux.classList.add('opacity-0');
+            
+            mtnStatus.innerHTML = '我是大山 Dgiyaq，溫慢地擁抱你所有的天氣。';
+            responseTruku.innerHTML = 'Yaku o ______ balay.';
+            responseChinese.innerText = '（我很 ______。）';
+            gayaResponse.classList.add('hidden');
+
+            document.getElementById('cert-student-name').value = '';
+            document.getElementById('cert-display-name').innerText = '[ 請輸入姓名 ]';
+        }
+
+        /* CERTIFICATE FEATURES */
+
+        // Open Modal and Setup Certificate Data
+        function openCertificateModal() {
+            const modal = document.getElementById('certificate-modal');
+            modal.classList.remove('hidden');
+            
+            // Set Today's Date dynamically
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth() + 1;
+            const date = today.getDate();
+            document.getElementById('cert-date').innerText = `${year} 年 ${month} 月 ${date} 日`;
+
+            // Adjust Seal based on Current selected weather
+            const sealIcon = document.getElementById('cert-seal-icon');
+            const sealTruku = document.getElementById('cert-seal-truku');
+            const sealChinese = document.getElementById('cert-seal-chinese');
+            const weatherStatusText = document.getElementById('cert-weather-status-text');
+
+            if (currentSelectedWeather === 'sunny') {
+                sealIcon.innerText = '☀️';
+                sealTruku.innerText = 'Mqqaras';
+                sealChinese.innerText = '喜樂晴天';
+                weatherStatusText.innerText = '晴天 (Malu bi karat) - Mqqaras 喜樂';
+            } else if (currentSelectedWeather === 'rainy') {
+                sealIcon.innerText = '🌈';
+                sealTruku.innerText = 'Qmuyux';
+                sealChinese.innerText = '堅韌雨天';
+                weatherStatusText.innerText = '下雨 (Qmuyux) - Mnarux 難過並接受洗禮';
+            } else if (currentSelectedWeather === 'windy') {
+                sealIcon.innerText = '💨';
+                sealTruku.innerText = 'Bgihur';
+                sealChinese.innerText = '勇氣強風';
+                weatherStatusText.innerText = '強風 (Yupun bgihur) - 學習與紛擾共處';
+            } else if (currentSelectedWeather === 'cloudy') {
+                sealIcon.innerText = '☁️';
+                sealTruku.innerText = 'Mgdhug';
+                sealChinese.innerText = '平靜白雲';
+                weatherStatusText.innerText = '白雲 (Rulung bhgay) - Mgdhug 平靜安穩';
+            }
+        }
+
+        // Close Modal
+        function closeCertificateModal() {
+            const modal = document.getElementById('certificate-modal');
+            modal.classList.add('hidden');
+        }
+
+        // Real-time Update name on certificate
+        function updateCertName() {
+            const inputVal = document.getElementById('cert-student-name').value;
+            const displayName = document.getElementById('cert-display-name');
+            if (inputVal.trim() !== '') {
+                displayName.innerText = inputVal;
+            } else {
+                displayName.innerText = '[ 請輸入姓名 ]';
+            }
+        }
+
+        // Trigger Browser Print Dialogue
+        function printCertificate() {
+            const inputName = document.getElementById('cert-student-name').value.trim();
+            if (inputName === '') {
+                alert('請先輸入小勇士的名字，再進行列印喔！');
+                return;
+            }
+            window.print();
+        }
+    </script>
+</body>
+</html>
